@@ -73,7 +73,7 @@ extern "C"
     // #############################################################################
 
     /**
-     *  @brief UART STM32L496VGT6P Operation Status Type
+     *  @brief UART STM32L496VGT6P Operation Status
      *
      *  @enum UART_STM32L496VGT6P_Status_t
      */
@@ -88,7 +88,7 @@ extern "C"
     } UART_STM32L496VGT6P_Status_t;
 
     /**
-     *  @brief UART STM32L496VGT6P Type
+     *  @brief UART STM32L496VGT6P
      *
      *  @enum UART_STM32L496VGT6P_t
      */
@@ -104,32 +104,46 @@ extern "C"
     } UART_STM32L496VGT6P_t;
 
     /**
-     *  @brief UART STM32L496VGT6P Instance Context Type
+     *  @brief UART STM32L496VGT6P Instance (Forward Declaration)
+     */
+    typedef struct UART_STM32L496VGT6P_Instance UART_STM32L496VGT6P_Instance_t;
+
+    /**
+     *  @brief UART STM32L496VGT6P Callback On Complete
+     */
+    typedef void ( *UART_STM32L496VGT6P_CallbackOnComplete_t )( UART_STM32L496VGT6P_Instance_t * Instance, UART_STM32L496VGT6P_Status_t Status );
+
+    /**
+     *  @brief UART STM32L496VGT6P Instance Context
      *
      *  @struct UART_STM32L496VGT6P_Instance_Context_t
      */
     typedef struct UART_STM32L496VGT6P_Instance_Context UART_STM32L496VGT6P_Instance_Context_t;
 
     /**
-     *  @brief UART STM32L496VGT6P Instance Type
+     *  @brief UART STM32L496VGT6P Instance
      *
      *  @struct UART_STM32L496VGT6P_Instance_t
      */
     typedef struct UART_STM32L496VGT6P_Instance
     {
         UART_STM32L496VGT6P_t UARTx;
+
         GPIO_t TX;
         GPIO_t RX;
+
+        UART_STM32L496VGT6P_CallbackOnComplete_t OnComplete;
+
         UART_STM32L496VGT6P_Instance_Context_t * Context;
     } UART_STM32L496VGT6P_Instance_t;
 
     /**
-     *  @brief UART STM32L496VGT6P Data Type
+     *  @brief UART STM32L496VGT6P Data
      */
     typedef uint8_t UART_STM32L496VGT6P_Data_t;
 
     /**
-     *  @brief UART STM32L496VGT6P Data Length Type
+     *  @brief UART STM32L496VGT6P Data Length
      */
     typedef uint32_t UART_STM32L496VGT6P_DataLength_t;
 
