@@ -36,9 +36,9 @@
     #define DEBUG
 #endif
 
-#ifdef DEBUG
-    #undef DEBUG
-#endif
+// #ifdef DEBUG
+//    #undef DEBUG
+// #endif
 
 // #############################################################################
 // #### File Guard #############################################################
@@ -572,6 +572,8 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Cycle( UART_STM
         UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ Instance->UARTx ];
         UART_STM32L496VGT6P_Process_t * Process = &Context->Process;
         UART_STM32L496VGT6P_Operation_t * Operation = &Process->Context.Operation;
+        UART_STM32L496VGT6P_Event_t Event = Context->Event; // CAUTION: Has to copy events occurred at the early start of the cycle, so as to be cleared at the end of the cycle,
+                                                            //          which let events occurs after that for the next cycle call
 
         if ( Operation->Handler != NULL )
         {
@@ -593,100 +595,100 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Cycle( UART_STM
             }
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_Interrupt ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_Interrupt ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_Interrupt;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_Interrupt;
             UART_Trace( "Interrupt: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_TxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_TxComplete ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_TxComplete;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_TxComplete;
             UART_Debug( "TX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_RxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_RxComplete ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_RxComplete;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_RxComplete;
             UART_Debug( "RX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_AbortTxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_AbortTxComplete ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_AbortTxComplete;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_AbortTxComplete;
             UART_Debug( "Abort TX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_AbortRxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_AbortRxComplete ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_AbortRxComplete;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_AbortRxComplete;
             UART_Debug( "Abort RX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_AbortComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_AbortComplete ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_AbortComplete;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_AbortComplete;
             UART_Debug( "Abort Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_ErrorParity ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorParity ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorParity;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorParity;
             UART_Debug( "Parity Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_ErrorNoise ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorNoise ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorNoise;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorNoise;
             UART_Debug( "Noise Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_ErrorFrame ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorFrame ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorFrame;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorFrame;
             UART_Debug( "Frame Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_ErrorOverrun ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorOverrun ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorOverrun;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorOverrun;
             UART_Debug( "Overrun Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_ErrorDMA ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorDMA ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorDMA;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorDMA;
             UART_Debug( "DMA Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_ErrorReceiverTimeout ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorReceiverTimeout ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorReceiverTimeout;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorReceiverTimeout;
             UART_Debug( "Receiver Timeout: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_RxEvent ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_RxEvent ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_RxEvent;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_RxEvent;
             UART_Debug( "RX Event: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Instance->Context->Event & UART_STM32L496VGT6P_Event_RxError ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_RxError ) != 0 )
         {
-            Instance->Context->Event &= ~UART_STM32L496VGT6P_Event_RxError;
+            Context->Event &= ~UART_STM32L496VGT6P_Event_RxError;
             UART_Debug( "RX Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
@@ -1211,7 +1213,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Insta
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260120-0211";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260124-1234";
 
 // #############################################################################
 // #### File Guard #############################################################
