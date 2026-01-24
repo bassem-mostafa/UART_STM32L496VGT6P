@@ -36,9 +36,9 @@
     #define DEBUG
 #endif
 
-// #ifdef DEBUG
-//    #undef DEBUG
-// #endif
+#ifdef DEBUG
+    #undef DEBUG
+#endif
 
 // #############################################################################
 // #### File Guard #############################################################
@@ -60,7 +60,7 @@
 // #### Private Macro(s) #######################################################
 // #############################################################################
 
-    #define UART_STM32L496VGT6P_BUFFER_SIZE_RECEIVE 64
+    #define UART_STM32L496VGT6P_BUFFER_SIZE_RECEIVE 4
 
 // #############################################################################
 // #### Private Type(s) ########################################################
@@ -77,6 +77,7 @@ typedef enum UART_STM32L496VGT6P_OperationType
     UART_STM32L496VGT6P_OperationType_Pending,  ///< Pending
     UART_STM32L496VGT6P_OperationType_Commit,   ///< Commit
     UART_STM32L496VGT6P_OperationType_Transmit, ///< Transmit
+    UART_STM32L496VGT6P_OperationType_Receive,  ///< Receive
 } UART_STM32L496VGT6P_OperationType_t;
 
 /**
@@ -174,6 +175,9 @@ typedef enum UART_STM32L496VGT6P_Event
     UART_STM32L496VGT6P_Event_ErrorReceiverTimeout = UTIL_BIT( 11 ),
     UART_STM32L496VGT6P_Event_RxEvent = UTIL_BIT( 12 ),
     UART_STM32L496VGT6P_Event_RxError = UTIL_BIT( 13 ),
+    UART_STM32L496VGT6P_Event_Wakeup = UTIL_BIT( 14 ),
+    UART_STM32L496VGT6P_Event_RxFull = UTIL_BIT( 15 ),
+    UART_STM32L496VGT6P_Event_TxEmpty = UTIL_BIT( 16 ),
 } UART_STM32L496VGT6P_Event_t;
 
 typedef struct UART_STM32L496VGT6P_Instance_Context
@@ -213,6 +217,9 @@ void HAL_UART_AbortCpltCallback( UART_HandleTypeDef * huart );
 void HAL_UART_AbortTransmitCpltCallback( UART_HandleTypeDef * huart );
 void HAL_UART_AbortReceiveCpltCallback( UART_HandleTypeDef * huart );
 void HAL_UARTEx_RxEventCallback( UART_HandleTypeDef * huart, uint16_t Size );
+void HAL_UARTEx_WakeupCallback( UART_HandleTypeDef * huart );
+void HAL_UARTEx_RxFifoFullCallback( UART_HandleTypeDef * huart );
+void HAL_UARTEx_TxFifoEmptyCallback( UART_HandleTypeDef * huart );
 
 static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Context_Initialize( void );
 static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Context_Cycle( void );
@@ -232,6 +239,9 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationCommitResolve( 
 
 static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationTransmitExecute( UART_STM32L496VGT6P_Instance_t * Instance );
 static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationTransmitResolve( UART_STM32L496VGT6P_Instance_t * Instance );
+
+static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationReceiveExecute( UART_STM32L496VGT6P_Instance_t * Instance );
+static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationReceiveResolve( UART_STM32L496VGT6P_Instance_t * Instance );
 
 // #############################################################################
 // #### Private Variable(s) ####################################################
@@ -328,12 +338,16 @@ void HAL_UART_RxCpltCallback( UART_HandleTypeDef * huart )
             Context->Receive.Length += huart->RxXferSize;
             if ( Context->Receive.Length >= UTIL_SizeOf( Context->Receive.Content ) )
             {
-                Context->Event |= UART_STM32L496VGT6P_Event_RxError;
-                Context->Receive.Length = 0;
+                Context->Event |= UART_STM32L496VGT6P_Event_RxFull;
+                Context->Receive.Length = UTIL_SizeOf( Context->Receive.Content );
             }
-            if ( HAL_UART_Receive_IT( &Context->UARTx, Context->Receive.Content + Context->Receive.Length, 1 ) != HAL_OK )
+
+            HAL_StatusTypeDef HAL_Status = HAL_ERROR;
+            if ( ( HAL_Status = HAL_UARTEx_ReceiveToIdle_IT( &Context->UARTx, Context->Receive.Content + Context->Receive.Length, UTIL_SizeOf( Context->Receive.Content ) - Context->Receive.Length ) ) != HAL_OK )
             {
                 // FIXME
+                // Status = UART_STM32L496VGT6P_Status_Error;
+                // break;
             }
         }
     }
@@ -433,6 +447,48 @@ void HAL_UARTEx_RxEventCallback( UART_HandleTypeDef * huart, uint16_t Size )
         if ( &Context->UARTx == huart )
         {
             Context->Event |= UART_STM32L496VGT6P_Event_RxEvent;
+            break;
+        }
+    }
+}
+
+void HAL_UARTEx_WakeupCallback( UART_HandleTypeDef * huart )
+{
+    for ( UART_STM32L496VGT6P_t UART_x = UART_STM32L496VGT6P_1; UART_x < UART_STM32L496VGT6P_Count; ++UART_x )
+    {
+        UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ UART_x ];
+
+        if ( &Context->UARTx == huart )
+        {
+            Context->Event |= UART_STM32L496VGT6P_Event_Wakeup;
+            break;
+        }
+    }
+}
+
+void HAL_UARTEx_RxFifoFullCallback( UART_HandleTypeDef * huart )
+{
+    for ( UART_STM32L496VGT6P_t UART_x = UART_STM32L496VGT6P_1; UART_x < UART_STM32L496VGT6P_Count; ++UART_x )
+    {
+        UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ UART_x ];
+
+        if ( &Context->UARTx == huart )
+        {
+            Context->Event |= UART_STM32L496VGT6P_Event_RxFull;
+            break;
+        }
+    }
+}
+
+void HAL_UARTEx_TxFifoEmptyCallback( UART_HandleTypeDef * huart )
+{
+    for ( UART_STM32L496VGT6P_t UART_x = UART_STM32L496VGT6P_1; UART_x < UART_STM32L496VGT6P_Count; ++UART_x )
+    {
+        UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ UART_x ];
+
+        if ( &Context->UARTx == huart )
+        {
+            Context->Event |= UART_STM32L496VGT6P_Event_TxEmpty;
             break;
         }
     }
@@ -595,98 +651,106 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Cycle( UART_STM
             }
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_Interrupt ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_Interrupt ) == UART_STM32L496VGT6P_Event_Interrupt )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_Interrupt;
             UART_Trace( "Interrupt: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_TxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_TxComplete ) == UART_STM32L496VGT6P_Event_TxComplete )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_TxComplete;
             UART_Debug( "TX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_RxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_RxComplete ) == UART_STM32L496VGT6P_Event_RxComplete )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_RxComplete;
             UART_Debug( "RX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_AbortTxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_AbortTxComplete ) == UART_STM32L496VGT6P_Event_AbortTxComplete )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_AbortTxComplete;
             UART_Debug( "Abort TX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_AbortRxComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_AbortRxComplete ) == UART_STM32L496VGT6P_Event_AbortRxComplete )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_AbortRxComplete;
             UART_Debug( "Abort RX Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_AbortComplete ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_AbortComplete ) == UART_STM32L496VGT6P_Event_AbortComplete )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_AbortComplete;
             UART_Debug( "Abort Complete: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorParity ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorParity ) == UART_STM32L496VGT6P_Event_ErrorParity )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorParity;
             UART_Debug( "Parity Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorNoise ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorNoise ) == UART_STM32L496VGT6P_Event_ErrorNoise )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorNoise;
             UART_Debug( "Noise Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorFrame ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorFrame ) == UART_STM32L496VGT6P_Event_ErrorFrame )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorFrame;
             UART_Debug( "Frame Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorOverrun ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorOverrun ) == UART_STM32L496VGT6P_Event_ErrorOverrun )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorOverrun;
             UART_Debug( "Overrun Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorDMA ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorDMA ) == UART_STM32L496VGT6P_Event_ErrorDMA )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorDMA;
             UART_Debug( "DMA Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorReceiverTimeout ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_ErrorReceiverTimeout ) == UART_STM32L496VGT6P_Event_ErrorReceiverTimeout )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_ErrorReceiverTimeout;
             UART_Debug( "Receiver Timeout: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_RxEvent ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_RxEvent ) == UART_STM32L496VGT6P_Event_RxEvent )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_RxEvent;
             UART_Debug( "RX Event: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
             // TODO Invoke Callback
         }
 
-        if ( ( Event & UART_STM32L496VGT6P_Event_RxError ) != 0 )
+        if ( ( Event & UART_STM32L496VGT6P_Event_Wakeup ) == UART_STM32L496VGT6P_Event_Wakeup )
+        {
+            Context->Event &= ~UART_STM32L496VGT6P_Event_Wakeup;
+            UART_Debug( "Wake-up: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
+            // TODO Invoke Callback
+        }
+
+        // FIXME Should it be removed ?
+        if ( ( Event & UART_STM32L496VGT6P_Event_RxError ) == UART_STM32L496VGT6P_Event_RxError )
         {
             Context->Event &= ~UART_STM32L496VGT6P_Event_RxError;
             UART_Debug( "RX Error: Instance=%p, UARTx=%d", Instance, Instance->UARTx );
@@ -1024,13 +1088,87 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationTransmitResolve
     return Status;
 }
 
+static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationReceiveExecute( UART_STM32L496VGT6P_Instance_t * Instance )
+{
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
+
+    do
+    {
+        UART_Trace( "%s( Instance=%p )", __FUNCTION__, Instance );
+
+        UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ Instance->UARTx ];
+        UART_STM32L496VGT6P_Process_t * Process = &Context->Process;
+        UART_STM32L496VGT6P_Operation_t * Operation = &Process->Context.Operation;
+
+        HAL_StatusTypeDef HAL_Status = HAL_ERROR;
+        if ( ( HAL_Status = HAL_UART_Receive_DMA( &Instance->Context->UARTx, Operation->Context.DataRx, Operation->Context.DataRxLength ) ) != HAL_OK )
+        {
+            Status = UART_STM32L496VGT6P_Status_Error;
+            break;
+        }
+
+        Operation->Type = UART_STM32L496VGT6P_OperationType_Receive;
+        Operation->Handler = UART_STM32L496VGT6P_OperationReceiveResolve;
+        Operation->Status = UART_STM32L496VGT6P_Status_Success;
+        Operation->Timeout = UART_STM32L496VGT6P_Context.Timestamp;
+
+        TIM_Status_t TIM_Status = TIM_Status_Error;
+        if ( ( TIM_Status = TIM_Timestamp_AddMillisecond( &Operation->Timeout, 1000 ) ) != TIM_Status_Success )
+        {
+            Status = UART_STM32L496VGT6P_Status_Error;
+            break;
+        }
+    }
+    while ( 0 );
+
+    return Status;
+}
+
+static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_OperationReceiveResolve( UART_STM32L496VGT6P_Instance_t * Instance )
+{
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
+
+    do
+    {
+        UART_Trace( "%s( Instance=%p )", __FUNCTION__, Instance );
+
+        UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ Instance->UARTx ];
+        UART_STM32L496VGT6P_Process_t * Process = &Context->Process;
+        UART_STM32L496VGT6P_Operation_t * Operation = &Process->Context.Operation;
+
+        if ( Operation->Type != UART_STM32L496VGT6P_OperationType_Receive )
+        {
+            UART_Error( "%s Got %d Expected %d", __FUNCTION__, Operation->Type, UART_STM32L496VGT6P_OperationType_Receive );
+            Status = UART_STM32L496VGT6P_Status_Error;
+            break;
+        }
+
+        TIM_Status_t TIM_Status = TIM_Status_Error;
+        if ( ( TIM_Status = TIM_IsExpiredTimestamp( UART_TIM, &Operation->Timeout ) ) == TIM_Status_Success )
+        {
+            Operation->Status = UART_STM32L496VGT6P_Status_Timeout;
+            Operation->Handler = NULL;
+            break;
+        }
+
+        if ( ( Context->Event & UART_STM32L496VGT6P_Event_RxComplete ) != 0 )
+        {
+            Operation->Status = UART_STM32L496VGT6P_Status_Success;
+            Operation->Handler = NULL;
+        }
+    }
+    while ( 0 );
+
+    return Status;
+}
+
 // #############################################################################
 // #### Public Method(s) #######################################################
 // #############################################################################
 
 UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Initialize( UART_STM32L496VGT6P_Instance_t * Instance )
 {
-    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Error;
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
 
     do
     {
@@ -1059,7 +1197,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Initialize( UART_STM32L496VGT6P
 
 UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Cycle( UART_STM32L496VGT6P_Instance_t * Instance )
 {
-    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Error;
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
     do
     {
         UART_Trace( "%s( Instance=%p )", __FUNCTION__, Instance );
@@ -1093,7 +1231,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Cycle( UART_STM32L496VGT6P_Inst
 
 UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_DeInitialize( UART_STM32L496VGT6P_Instance_t * Instance )
 {
-    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Error;
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
 
     do
     {
@@ -1126,9 +1264,9 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_DeInitialize( UART_STM32L496VGT
     return Status;
 }
 
-UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Write( UART_STM32L496VGT6P_Instance_t * Instance, UART_STM32L496VGT6P_Data_t * Data, UART_STM32L496VGT6P_DataLength_t DataLength )
+UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_IsReady( UART_STM32L496VGT6P_Instance_t * Instance )
 {
-    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Error;
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
 
     do
     {
@@ -1146,7 +1284,41 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Write( UART_STM32L496VGT6P_Inst
             break;
         }
 
-        Status = UART_STM32L496VGT6P_Status_Success;
+        UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ Instance->UARTx ];
+        UART_STM32L496VGT6P_Process_t * Process = &Context->Process;
+        UART_STM32L496VGT6P_Operation_t * Operation = &Process->Context.Operation;
+
+        if ( Process->Type != UART_STM32L496VGT6P_ProcessType_None
+             || Operation->Type != UART_STM32L496VGT6P_OperationType_None )
+        {
+            Status = UART_STM32L496VGT6P_Status_Busy;
+            break;
+        }
+    }
+    while ( 0 );
+
+    return Status;
+}
+
+UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Write( UART_STM32L496VGT6P_Instance_t * Instance, UART_STM32L496VGT6P_Data_t * Data, UART_STM32L496VGT6P_DataLength_t DataLength )
+{
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
+
+    do
+    {
+        UART_Trace( "%s( Instance=%p )", __FUNCTION__, Instance );
+
+        if ( Instance == NULL )
+        {
+            Status = UART_STM32L496VGT6P_Status_ArgumentInvalid;
+            break;
+        }
+
+        if ( Instance->Context == NULL )
+        {
+            Status = UART_STM32L496VGT6P_Status_Error;
+            break;
+        }
 
         UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ Instance->UARTx ];
         UART_STM32L496VGT6P_Process_t * Process = &Context->Process;
@@ -1171,7 +1343,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Write( UART_STM32L496VGT6P_Inst
 
 UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Instance_t * Instance, UART_STM32L496VGT6P_Data_t * Data, UART_STM32L496VGT6P_DataLength_t DataLength )
 {
-    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Error;
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
 
     do
     {
@@ -1202,7 +1374,6 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Insta
         Instance->Context->Receive.Content[ Instance->Context->Receive.Length ] = 0;
         Instance->Context->UARTx.pRxBuffPtr -= DataLength;
         KERNEL_InterruptEnable( );
-        Status = UART_STM32L496VGT6P_Status_Success;
     }
     while ( 0 );
 
@@ -1213,7 +1384,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Insta
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260124-1234";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260125-0138";
 
 // #############################################################################
 // #### File Guard #############################################################

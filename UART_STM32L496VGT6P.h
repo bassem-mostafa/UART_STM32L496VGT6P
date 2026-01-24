@@ -179,6 +179,15 @@ extern "C"
     UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_DeInitialize( UART_STM32L496VGT6P_Instance_t * Instance );
 
     /**
+     *  @brief Check readiness of specified UART STM32L496VGT6P Instance
+     *
+     *  @param[in] Instance Instance
+     *
+     *  @return UART_STM32L496VGT6P_Status_t
+     */
+    UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_IsReady( UART_STM32L496VGT6P_Instance_t * Instance );
+
+    /**
      *  @brief Writes data to specified UART STM32L496VGT6P Instance
      *
      *  @param[in] Instance   Instance
