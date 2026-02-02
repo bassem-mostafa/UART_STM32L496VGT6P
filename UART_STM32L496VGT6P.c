@@ -611,7 +611,7 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Initialize( UAR
 
 static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Cycle( UART_STM32L496VGT6P_Instance_t * Instance )
 {
-    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Error;
+    UART_STM32L496VGT6P_Status_t Status = UART_STM32L496VGT6P_Status_Success;
 
     do
     {
@@ -622,8 +622,6 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Cycle( UART_STM
             Status = UART_STM32L496VGT6P_Status_ArgumentInvalid;
             break;
         }
-
-        Status = UART_STM32L496VGT6P_Status_Success;
 
         UART_STM32L496VGT6P_Instance_Context_t * Context = &UART_STM32L496VGT6P_Context.Context[ Instance->UARTx ];
         UART_STM32L496VGT6P_Process_t * Process = &Context->Process;
@@ -1384,7 +1382,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Insta
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260125-0138";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260202-1914";
 
 // #############################################################################
 // #### File Guard #############################################################
