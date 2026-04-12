@@ -116,9 +116,9 @@ extern "C"
     /**
      *  @brief UART STM32L496VGT6P Instance Context
      *
-     *  @struct UART_STM32L496VGT6P_Instance_Context_t
+     *  @struct UART_STM32L496VGT6P_InstanceContext_t
      */
-    typedef struct UART_STM32L496VGT6P_Instance_Context UART_STM32L496VGT6P_Instance_Context_t;
+    typedef struct UART_STM32L496VGT6P_InstanceContext UART_STM32L496VGT6P_InstanceContext_t;
 
     /**
      *  @brief UART STM32L496VGT6P Instance
@@ -134,7 +134,7 @@ extern "C"
 
         UART_STM32L496VGT6P_CallbackOnComplete_t OnComplete;
 
-        UART_STM32L496VGT6P_Instance_Context_t * Context;
+        UART_STM32L496VGT6P_InstanceContext_t * Context;
     } UART_STM32L496VGT6P_Instance_t;
 
     /**
