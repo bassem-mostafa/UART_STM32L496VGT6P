@@ -1366,12 +1366,12 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Insta
         }
 
         UTIL_MemoryCopy( Data, Instance->Context->Receive.Content, DataLength );
-        KERNEL_InterruptDisable( );
+        KERNEL_InterruptDisable( KERNEL_All );
         UTIL_MemoryCopy( Instance->Context->Receive.Content, Instance->Context->Receive.Content + DataLength, Instance->Context->Receive.Length - DataLength );
         Instance->Context->Receive.Length -= DataLength;
         Instance->Context->Receive.Content[ Instance->Context->Receive.Length ] = 0;
         Instance->Context->UARTx.pRxBuffPtr -= DataLength;
-        KERNEL_InterruptEnable( );
+        KERNEL_InterruptEnable( KERNEL_All );
     }
     while ( 0 );
 
@@ -1382,7 +1382,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_Insta
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260412-1852";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260526-1736";
 
 // #############################################################################
 // #### File Guard #############################################################
