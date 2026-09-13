@@ -630,20 +630,16 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Instance_Cycle( UART_STM
 
         if ( Operation->Handler != NULL )
         {
-            UART_STM32L496VGT6P_Status_t STM32L496VGT6P_Status = UART_STM32L496VGT6P_Status_Error;
-            if ( ( STM32L496VGT6P_Status = Operation->Handler( UARTx ) ) != UART_STM32L496VGT6P_Status_Success )
+            if ( ( Status = Operation->Handler( UARTx ) ) != UART_STM32L496VGT6P_Status_Success )
             {
-                Status = STM32L496VGT6P_Status;
                 // FIXME Operation reported non success status, is there any action ?
             }
         }
 
         if ( Process->Handler != NULL )
         {
-            UART_STM32L496VGT6P_Status_t STM32L496VGT6P_Status = UART_STM32L496VGT6P_Status_Error;
-            if ( ( STM32L496VGT6P_Status = Process->Handler( UARTx ) ) != UART_STM32L496VGT6P_Status_Success )
+            if ( ( Status = Process->Handler( UARTx ) ) != UART_STM32L496VGT6P_Status_Success )
             {
-                Status = STM32L496VGT6P_Status;
                 // FIXME Process reported non success status, is there any action ?
             }
         }
@@ -1331,7 +1327,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_t UAR
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260818-0345";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20260913-1832";
 
 // #############################################################################
 // #### File Guard #############################################################
