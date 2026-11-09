@@ -62,7 +62,8 @@
 // #### Private Macro(s) #######################################################
 // #############################################################################
 
-    #define UART_STM32L496VGT6P_BUFFER_SIZE_RECEIVE 20
+
+    #define UART_STM32L496VGT6P_BUFFER_SIZE_RECEIVE 32
 
 // #############################################################################
 // #### Private Type(s) ########################################################
@@ -350,7 +351,7 @@ void HAL_UART_RxCpltCallback( UART_HandleTypeDef * huart )
             }
 
             HAL_StatusTypeDef HAL_Status = HAL_ERROR;
-            if ( ( HAL_Status = HAL_UARTEx_ReceiveToIdle_IT( &Instance->UARTx, Instance->Receive.Content + Instance->Receive.Length, UTIL_SizeOf( Instance->Receive.Content ) - Instance->Receive.Length ) ) != HAL_OK )
+            if ( ( HAL_Status = HAL_UARTEx_ReceiveToIdle_IT( &Instance->UARTx, Instance->Receive.Content + Instance->Receive.Length, 1 /* FIXME Use UTIL_SizeOf( Instance->Receive.Content ) - Instance->Receive.Length */ ) ) != HAL_OK )
             {
                 // FIXME
                 // Status = UART_STM32L496VGT6P_Status_Error;
@@ -454,6 +455,21 @@ void HAL_UARTEx_RxEventCallback( UART_HandleTypeDef * huart, uint16_t Size )
         if ( &Instance->UARTx == huart )
         {
             Instance->Event |= UART_STM32L496VGT6P_Event_RxEvent;
+
+            Instance->Receive.Length += Size;
+            if ( Instance->Receive.Length >= UTIL_SizeOf( Instance->Receive.Content ) )
+            {
+                Instance->Event |= UART_STM32L496VGT6P_Event_RxFull;
+                Instance->Receive.Length = UTIL_SizeOf( Instance->Receive.Content );
+            }
+
+            HAL_StatusTypeDef HAL_Status = HAL_ERROR;
+            if ( ( HAL_Status = HAL_UARTEx_ReceiveToIdle_IT( &Instance->UARTx, Instance->Receive.Content + Instance->Receive.Length, (UTIL_SizeOf( Instance->Receive.Content ) - Instance->Receive.Length > 0 ? 1 : 0 )) ) != HAL_OK )
+            {
+                // FIXME
+                // Status = UART_STM32L496VGT6P_Status_Error;
+                // break;
+            }
             break;
         }
     }
@@ -541,7 +557,7 @@ static UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Context_Initialize( void
             UART_STM32L496VGT6P_Instance_t * Instance = &UART_STM32L496VGT6P_Context.Instance[ UART_x ];
 
             HAL_StatusTypeDef HAL_Status = HAL_ERROR;
-            if ( ( HAL_Status = HAL_UART_Receive_IT( &Instance->UARTx, ( uint8_t * ) Instance->Receive.Content, 1 ) ) != HAL_OK )
+            if ( ( HAL_Status = HAL_UARTEx_ReceiveToIdle_IT( &Instance->UARTx, Instance->Receive.Content + Instance->Receive.Length, (UTIL_SizeOf( Instance->Receive.Content ) - Instance->Receive.Length > 0 ? 1 : 0 )) ) != HAL_OK )
             {
                 // FIXME Only UART_STM32L496VGT6P_1, UART_STM32L496VGT6P_2 has been initialized
                 //       others UART_STM32L496VGT6P_3...6 has NOT been initialized and would fail
@@ -1277,12 +1293,12 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Write( UART_STM32L496VGT6P_t UA
         UART_STM32L496VGT6P_Process_t * Process = &Instance->Process;
         UART_STM32L496VGT6P_Operation_t * Operation = &Process->Context.Operation;
 
-        if ( Process->Type != UART_STM32L496VGT6P_ProcessType_None
-             || Operation->Type != UART_STM32L496VGT6P_OperationType_None )
-        {
-            Status = UART_STM32L496VGT6P_Status_Busy;
-            break;
-        }
+//        if ( Process->Type != UART_STM32L496VGT6P_ProcessType_None
+//             || Operation->Type != UART_STM32L496VGT6P_OperationType_None )
+//        {
+//            Status = UART_STM32L496VGT6P_Status_Busy;
+//            break;
+//        }
 
         Status = UART_STM32L496VGT6P_SetProcess( UARTx, UART_STM32L496VGT6P_ProcessType_Transmit );
 
@@ -1327,7 +1343,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_t UAR
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20261102-2328";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20261109-2021";
 
 // #############################################################################
 // #### File Guard #############################################################
