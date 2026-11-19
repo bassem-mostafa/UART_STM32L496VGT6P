@@ -62,8 +62,8 @@
 // #### Private Macro(s) #######################################################
 // #############################################################################
 
-    #define UART_STM32L496VGT6P_TRANSMIT_BUFFER_SIZE 64
-    #define UART_STM32L496VGT6P_RECEIVE_BUFFER_SIZE  64
+    #define UART_STM32L496VGT6P_TRANSMIT_BUFFER_SIZE 1024
+    #define UART_STM32L496VGT6P_RECEIVE_BUFFER_SIZE  1024
 
 // #############################################################################
 // #### Private Type(s) ########################################################
@@ -924,7 +924,20 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Cycle( UART_STM32L496VGT6P_t UA
 
         if ( Instance->Transmit.Length > 0 )
         {
-            if ( ( HAL_Status = HAL_UART_Transmit_DMA( &Instance->UARTx, Instance->Transmit.Content, Instance->Transmit.Length ) ) != HAL_OK )
+            if ( Instance->UARTx.pTxBuffPtr == Instance->Transmit.Content )
+            {
+                // Wait for in progress transmission to complete
+                break;
+            }
+
+            uint8_t * end = Instance->Transmit.Content + Instance->Transmit.Length;
+            if ( end > ( Instance->Transmit._Memory + Instance->Transmit._Size ) )
+            {
+                // @note Buffer wrapped around, split the transmission into two chunks
+                end = Instance->Transmit._Memory + Instance->Transmit._Size;
+            }
+
+            if ( ( HAL_Status = HAL_UART_Transmit_DMA( &Instance->UARTx, Instance->Transmit.Content, end - Instance->Transmit.Content ) ) != HAL_OK )
             {
                 // FIXME UART is always trying to transfer even if there is an ongoing transmission
             }
@@ -1040,7 +1053,7 @@ UART_STM32L496VGT6P_Status_t UART_STM32L496VGT6P_Read( UART_STM32L496VGT6P_t UAR
 // #### Public Variable(s) #####################################################
 // #############################################################################
 
-const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20261113-2312";
+const char UART_STM32L496VGT6P_VERSION[] = "0.0.0.v20261120-0004";
 
 // #############################################################################
 // #### File Guard #############################################################
